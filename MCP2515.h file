@@ -1,0 +1,46 @@
+/*
+ * mcp2515.h
+ *
+ *  Created on: Dec 19, 2025
+ *      Author: SRIRAM
+ */
+
+#ifndef MCP2515_H_
+#define MCP2515_H_
+
+#include "stm32f4xx_hal.h"
+
+#define CS_PORT GPIOA
+#define CS_PIN 	GPIO_PIN_4
+
+// SPI MPC2515 Init
+#define MCP_RESET        0xC0
+#define MCP_READ         0x03
+#define MCP_WRITE        0x02
+#define MCP_BITMOD       0x05
+#define MCP_RTS_TX0      0x81
+
+// SPI MPC2515 Register
+
+#define CANCTRL          0x0F
+#define CANSTAT          0x0E
+#define CNF1             0x2A
+#define CNF2             0x29
+#define CNF3             0x28
+#define CANINTE          0x2B
+#define CANINTF          0x2C
+#define TXB0SIDH   0x31
+#define TXB0SIDL   0x32
+#define TXB0DLC    0x35
+#define TXB0D0     0x36
+
+void MCP2515_Init(SPI_HandleTypeDef *hspi);
+void MCP2515_CS_Low(void);
+void MCP2515_CS_High(void);
+void MCP2515_Reset(void);
+void MCP2515_WriteRegister(uint8_t address, uint8_t value);
+uint8_t MCP2515_ReadRegister(uint8_t address);
+void MCP2515_SendMessage(uint32_t id, uint8_t* data, uint8_t length);
+uint8_t MCP2515_ReceiveMessage(uint32_t *id, uint8_t *data, uint8_t *length);
+
+#endif /* MCP2515_H_ */
