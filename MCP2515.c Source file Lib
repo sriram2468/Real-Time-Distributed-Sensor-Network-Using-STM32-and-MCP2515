@@ -1,0 +1,109 @@
+/*
+ * mcp2515.c
+ *
+ *  Created on: Dec 19, 2025
+ *      Author: SRIRAM
+ */
+#include "mcp2515.h"
+
+SPI_HandleTypeDef *MPC_SPI;
+static SPI_HandleTypeDef hspi1;
+
+void MCP2515_CS_Low(void)
+{
+    HAL_GPIO_WritePin(CS_PORT, CS_PIN, GPIO_PIN_RESET);
+}
+
+void MCP2515_CS_High(void)
+{
+    HAL_GPIO_WritePin(CS_PORT, CS_PIN, GPIO_PIN_SET);
+}
+
+void MCP2515_Reset(void)
+{
+    uint8_t cmd = MCP_RESET;
+
+    MCP2515_CS_Low();
+    HAL_SPI_Transmit(&hspi1, &cmd, 1, 100);
+    MCP2515_CS_High();
+
+    HAL_Delay(10);
+}
+
+void MCP2515_WriteRegister(uint8_t address, uint8_t value)
+{
+    uint8_t cmd[3];
+    cmd[0] = MCP_WRITE;
+    cmd[1] = address;
+    cmd[2] = value;
+
+    MCP2515_CS_Low();
+    HAL_SPI_Transmit(&hspi1, cmd, 3, HAL_MAX_DELAY);
+    MCP2515_CS_High();
+}
+
+uint8_t MCP2515_ReadRegister(uint8_t address) {
+    uint8_t cmd[2] = {MCP_READ, address};
+    uint8_t value = 0;
+    MCP2515_CS_Low();
+    HAL_SPI_Transmit(MPC_SPI, cmd, 2, HAL_MAX_DELAY);
+    HAL_SPI_Receive(MPC_SPI, &value, 1, HAL_MAX_DELAY);
+    MCP2515_CS_High();
+    return value;
+}
+
+void MCP2515_Init(SPI_HandleTypeDef *hspi)
+{
+	MPC_SPI = hspi;
+    MCP2515_Reset();
+
+    /* Configuration mode */
+    MCP2515_WriteRegister(CANCTRL, 0x80);
+
+    /* Bit timing (1 Mbps @ 8 MHz) */
+    MCP2515_WriteRegister(CNF1, 0x00);
+    MCP2515_WriteRegister(CNF2, 0xC0);
+    MCP2515_WriteRegister(CNF3, 0x80);
+
+    /* Enable RX interrupts */
+    MCP2515_WriteRegister(CANINTE, 0x03);
+
+    /* Normal mode */
+    MCP2515_WriteRegister(CANCTRL, 0x00);
+}
+
+void MCP2515_SendMessage(uint32_t id, uint8_t* data, uint8_t length) {
+    MCP2515_WriteRegister(TXB0SIDH, (id >> 3) & 0xFF);
+    MCP2515_WriteRegister(TXB0SIDL, (id << 5) & 0xE0);
+    MCP2515_WriteRegister(TXB0DLC, length); // length
+
+    // To send data
+    for (uint8_t i = 0; i < length; i++)
+    {
+        MCP2515_WriteRegister(TXB0D0 + i, data[i]);
+    }
+ // for RTS
+    uint8_t rts = MCP_RTS_TX0;
+    MCP2515_CS_Low();
+    HAL_SPI_Transmit(MPC_SPI, &rts, 1, HAL_MAX_DELAY);
+    MCP2515_CS_High();
+}
+
+/*uint8_t MCP2515_ReceiveMessage(uint32_t *id, uint8_t *data, uint8_t *length) {
+    uint8_t sidh = MCP2515_ReadRegister(RXB0SIDH);
+    uint8_t sidl = MCP2515_ReadRegister(RXB0SIDL);
+    uint8_t dlc  = MCP2515_ReadRegister(RXB0DLC) & 0x0F;
+
+    *id = ((uint32_t)sidh << 3) | (sidl >> 5);
+    *length = dlc;
+
+    for (uint8_t i = 0; i < dlc; i++) {
+        data[i] = MCP2515_ReadRegister(RXB0D0 + i);
+    }
+
+    // Clear interrupt flag for RXB0
+    MCP2515_WriteRegister(CANINTF, MCP2515_ReadRegister(CANINTF) & ~0x01);
+
+    return 1;  // message received
+}
+*/
